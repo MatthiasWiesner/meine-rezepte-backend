@@ -20,8 +20,6 @@ end
 
 
 class App < Sinatra::Base
-    HTPASSWD_PATH = '.htpasswd'
-
     cloudinary_cfg = YAML.load_file('./config/cloudinary.yml')[Sinatra::Application.environment.to_s]
     Cloudinary.config(cloudinary_cfg)
 
@@ -45,16 +43,18 @@ class App < Sinatra::Base
 
     configure do
         enable :cross_origin
+        enable :sessions
+        set :session_secret, "secret"
     end
-    
+
     before do
         response.headers['Access-Control-Allow-Origin'] = '*'
     end
-      
-    # routes...
+
     options "*" do
-        response.headers["Allow"] = "GET, POST, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, X-User-Email, X-Auth-Token"
+        response.headers["Allow"] = "GET, POST, OPTIONS, PUT, DELETE"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS, PUT, DELETE"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept"
         response.headers["Access-Control-Allow-Origin"] = "*"
         200
     end
@@ -75,7 +75,7 @@ class App < Sinatra::Base
             end
             @recipes = Recipe.where("title LIKE ?", "#{t}%")
         elsif params.key?("title")
-            t = params[:title]
+            t = Base64.decode64(params[:title])
             if not t
                 halt 500, "Missing parameter"
             end
@@ -95,11 +95,12 @@ class App < Sinatra::Base
 
     post "/recipe/?" do
         protect!
-        payload = params 
-        payload = JSON.parse(request.body.read).symbolize_keys
-
         begin
-            @recipe = Recipe.create!(payload)
+            @recipe = Recipe.create!(
+                title: params[:title],
+                description: params[:description],
+                content: params[:content]
+            )
             @recipe.to_json
         rescue => err
             halt 500, err.message
@@ -108,12 +109,13 @@ class App < Sinatra::Base
 
     put "/recipe/:id" do
         protect!
-        payload = params
-        payload = JSON.parse(request.body.read).symbolize_keys
-
         begin
             @recipe = Recipe.find(params[:id])
-            @recipe.update_attributes!(payload)
+            @recipe.update!(
+                title: params[:title],
+                description: params[:description],
+                content: params[:content]
+            )
             @recipe.to_json
         rescue => err
             halt 500, err.message
@@ -122,6 +124,13 @@ class App < Sinatra::Base
 
     delete '/recipe/:id' do
         protect!
+        @recipe = Recipe.find(params[:id])
+        if @recipe.pictureList
+            @recipe.pictureList.each do | url |
+                public_id = url.split('/').last().split('.').first()
+                Cloudinary::Uploader.destroy(public_id)
+            end
+        end
         begin
             Recipe.destroy(params[:id])
         rescue => err
@@ -181,7 +190,7 @@ class App < Sinatra::Base
             @recipe.pictureList << result["secure_url"]
             @recipe.save!
 
-            result.to_json
+            @recipe.to_json
         rescue => err
             halt 500, err.message
         end
@@ -195,6 +204,10 @@ class App < Sinatra::Base
                 halt 404
             end
             url = Base64.decode64(params[:url])
+
+            public_id = url.split('/').last().split('.').first()
+            Cloudinary::Uploader.destroy(public_id)
+
             @recipe.pictureList.delete(url)
             @recipe.save!
         rescue => err
