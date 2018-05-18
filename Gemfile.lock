@@ -56,6 +56,7 @@ GEM
     sinatra-activerecord (2.0.13)
       activerecord (>= 3.2)
       sinatra (>= 1.0)
+    sinatra-cross_origin (0.4.0)
     thread_safe (0.3.6)
     tilt (2.0.8)
     tzinfo (1.2.5)
@@ -75,6 +76,7 @@ DEPENDENCIES
   rake
   sinatra
   sinatra-activerecord
+  sinatra-cross_origin
 
 BUNDLED WITH
    1.16.1
