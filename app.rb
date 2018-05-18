@@ -95,6 +95,7 @@ class App < Sinatra::Base
 
     post "/recipe/?" do
         protect!
+        content_type :json
         begin
             @recipe = Recipe.create!(
                 title: params[:title],
@@ -109,6 +110,7 @@ class App < Sinatra::Base
 
     put "/recipe/:id" do
         protect!
+        content_type :json
         begin
             @recipe = Recipe.find(params[:id])
             @recipe.update!(
@@ -141,6 +143,7 @@ class App < Sinatra::Base
     ## Picture relevant methods
     post '/recipe/:id/picture' do
         protect!
+        content_type :json
         '''
         params => 
         {
