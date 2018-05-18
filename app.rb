@@ -21,10 +21,8 @@ end
 class App < Sinatra::Base
     HTPASSWD_PATH = '.htpasswd'
 
-    if Sinatra::Application.environment.to_s == 'development'
-        cloudinary_cfg = YAML.load_file('./config/cloudinary.yml')[Sinatra::Application.environment.to_s]
-        Cloudinary.config(cloudinary_cfg)
-    end
+    cloudinary_cfg = YAML.load_file('./config/cloudinary.yml')[Sinatra::Application.environment.to_s]
+    Cloudinary.config(cloudinary_cfg)
 
     helpers do
         def protect!
