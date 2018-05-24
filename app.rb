@@ -3,25 +3,34 @@ require 'sinatra/activerecord'
 require 'json'
 require 'digest/sha1'
 require 'base64'
-require 'cloudinary'
 require 'yaml'
 require 'pry'
 require 'sinatra/cross_origin'
+require 'fileutils'
 
 
-class Recipe < ActiveRecord::Base
-    validates :title, presence: true, uniqueness: true
+class Organization < ActiveRecord::Base
+    has_many :users
+    has_many :recipes
+    validates :name, presence: true, uniqueness: true
 end
 
 class User < ActiveRecord::Base
+    belongs_to :organization
+    has_many :recipes, through: :organization
     validates :email, presence: true, uniqueness: true
     validates :password, presence: true
 end
 
+class Recipe < ActiveRecord::Base
+    belongs_to :organization
+    has_many :users, through: :organization
+    validates :title, presence: true, uniqueness: true
+end
+
 
 class App < Sinatra::Base
-    cloudinary_cfg = YAML.load_file('./config/cloudinary.yml')[Sinatra::Application.environment.to_s]
-    Cloudinary.config(cloudinary_cfg)
+    @@base_path = './uploads'
 
     helpers do
         def protect!
@@ -35,8 +44,8 @@ class App < Sinatra::Base
             @auth ||=  Rack::Auth::Basic::Request.new(request.env)
             if @auth.provided? && @auth.basic? && @auth.credentials
                 user, pass = @auth.credentials
-                auth = User.where(email: user.strip(), password: Base64.encode64(pass).strip())
-                return auth.present?
+                @auth_user = User.where(email: user.strip(), password: Base64.encode64(pass).strip()).take
+                return @auth_user.present?
             end
         end
     end
@@ -73,15 +82,15 @@ class App < Sinatra::Base
             if not t
                 halt 500, "Missing parameter"
             end
-            @recipes = Recipe.where("title LIKE ?", "#{t}%")
+            @recipes = @auth_user.recipes.where("title LIKE ?", "#{t}%")
         elsif params.key?("title")
             t = Base64.decode64(params[:title])
             if not t
                 halt 500, "Missing parameter"
             end
-            @recipes = Recipe.where("title = ?", t)[0]
+            @recipes = @auth_user.recipes.where("title = ?", t).first
         else
-            @recipes = Recipe.all()
+            @recipes = @auth_user.recipes.all()
         end
         @recipes.to_json
     end
@@ -89,7 +98,7 @@ class App < Sinatra::Base
     get '/recipe/:id' do
         protect!
         content_type :json
-        @recipe = Recipe.find(params[:id])
+        @recipe = @auth_user.recipes.find(params[:id])
         @recipe.to_json
     end
 
@@ -97,7 +106,7 @@ class App < Sinatra::Base
         protect!
         content_type :json
         begin
-            @recipe = Recipe.create!(
+            @recipe = @auth_user.organization.recipes.create!(
                 title: params[:title],
                 description: params[:description],
                 content: params[:content]
@@ -112,7 +121,7 @@ class App < Sinatra::Base
         protect!
         content_type :json
         begin
-            @recipe = Recipe.find(params[:id])
+            @recipe = @auth_user.recipes.find(params[:id])
             @recipe.update!(
                 title: params[:title],
                 description: params[:description],
@@ -126,15 +135,10 @@ class App < Sinatra::Base
 
     delete '/recipe/:id' do
         protect!
-        @recipe = Recipe.find(params[:id])
-        if @recipe.pictureList
-            @recipe.pictureList.each do | url |
-                public_id = url.split('/').last().split('.').first()
-                Cloudinary::Uploader.destroy(public_id)
-            end
-        end
+        @recipe = @auth_user.recipes.find(params[:id])
         begin
-            Recipe.destroy(params[:id])
+            FileUtils.rm_f(@recipe.pictureList)
+            @recipe.destroy!
         rescue => err
             halt 500, err.message
         end
@@ -159,38 +163,26 @@ class App < Sinatra::Base
         }
         '''
         begin
-            @recipe = Recipe.find(params[:id])
+            @recipe = @auth_user.recipes.find(params[:id])
             if not @recipe
                 halt 404
             end
-            
+
             halt 500, 'Wrong picture format' unless ['image/png', 'image/jpeg', 'image/gif'].include?(params[:upload][:type])
             halt 500, 'Missing file' unless params[:upload][:tempfile]
 
-            result = Cloudinary::Uploader.upload(params[:upload][:tempfile])
-            '''
-            {
-                "public_id"=>"macx14urgihbton1dggx", 
-                "version"=>1526560741, 
-                "signature"=>"3ffd79ed4b402567c4e5c7cd98a5aa2e31c86791", 
-                "width"=>350, 
-                "height"=>350, 
-                "format"=>"png", 
-                "resource_type"=>"image", 
-                "created_at"=>"2018-05-17T12:39:01Z", 
-                "tags"=>[], 
-                "bytes"=>78661, 
-                "type"=>"upload", 
-                "etag"=>"016776bd6dd30cbc7547110dbdf27887", 
-                "placeholder"=>false, 
-                "url"=>"http://res.cloudinary.com/dudvseir8/image/upload/v1526560741/macx14urgihbton1dggx.png", "secure_url"=>"https://res.cloudinary.com/dudvseir8/image/upload/v1526560741/macx14urgihbton1dggx.png", "original_filename"=>"RackMultipart20180517-76738-1uo0000", 
-                "original_extension"=>"txt"
-            }
-            '''
-            if not @recipe.pictureList
-                @recipe.pictureList = []
-            end
-            @recipe.pictureList << result["secure_url"]
+            tmp_path = params[:upload][:tempfile].path
+            ext =  params[:upload][:type].split('/').last
+            name = File.basename(tmp_path, File.extname(tmp_path)).split('RackMultipart').last + '.' + ext
+            organame = Base64.encode64(@auth_user.organization.name)[0..8]
+
+            dir_path = File.join(@@base_path, organame)
+            FileUtils.mkdir_p(dir_path)
+
+            path = File.join(dir_path, name)
+            FileUtils.mv(tmp_path, path)
+
+            @recipe.pictureList << path
             @recipe.save!
 
             @recipe.to_json
@@ -202,16 +194,13 @@ class App < Sinatra::Base
     delete '/recipe/:id/picture/:url' do
         protect!
         begin
-            @recipe = Recipe.find(params[:id])
+            @recipe = @auth_user.recipes.find(params[:id])
             if not @recipe
                 halt 404
             end
-            url = Base64.decode64(params[:url])
-
-            public_id = url.split('/').last().split('.').first()
-            Cloudinary::Uploader.destroy(public_id)
-
-            @recipe.pictureList.delete(url)
+            path = Base64.decode64(params[:url])
+            FileUtils.rm(path)
+            @recipe.pictureList.delete(path)
             @recipe.save!
         rescue => err
             halt 500, err.message

@@ -15,17 +15,27 @@ ActiveRecord::Schema.define(version: 2018_05_17_162058) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
+  create_table "organizations", force: :cascade do |t|
+    t.string "name"
+    t.index ["name"], name: "index_organizations_on_name", unique: true
+  end
+
   create_table "recipes", force: :cascade do |t|
+    t.bigint "organization_id"
     t.string "title", default: "", null: false
     t.string "description", default: ""
     t.string "content", default: ""
-    t.string "pictureList", array: true
+    t.string "pictureList", default: [], array: true
+    t.index ["organization_id"], name: "index_recipes_on_organization_id"
     t.index ["title"], name: "index_recipes_on_title", unique: true
   end
 
   create_table "users", force: :cascade do |t|
+    t.bigint "organization_id"
     t.string "email"
     t.string "password"
+    t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["organization_id"], name: "index_users_on_organization_id"
   end
 
 end
