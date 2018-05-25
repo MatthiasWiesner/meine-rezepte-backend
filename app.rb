@@ -182,9 +182,11 @@ class App < Sinatra::Base
 
             dir_path = File.join(@@base_path, organame)
             FileUtils.mkdir_p(dir_path)
-            
+            FileUtils.chmod(0775, dir_path)
+
             full_path = File.join(dir_path, picture_name)
             FileUtils.mv(tmp_path, full_path)
+            FileUtils.chmod(0664, full_path)
 
             @recipe.pictureList << picture_path
             @recipe.save!
