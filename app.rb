@@ -30,7 +30,7 @@ end
 
 
 class App < Sinatra::Base
-    @@base_path = './uploads'
+    @@base_path = '/var/www/html/meine-rezepte/public/images'
 
     helpers do
         def protect!
@@ -137,7 +137,9 @@ class App < Sinatra::Base
         protect!
         @recipe = @auth_user.recipes.find(params[:id])
         begin
-            FileUtils.rm_f(@recipe.pictureList)
+            @recipe.pictureList.each do |picture_path|
+                FileUtils.rm(File.join(@@base_path, picture_path)
+            end
             @recipe.destroy!
         rescue => err
             halt 500, err.message
@@ -172,17 +174,19 @@ class App < Sinatra::Base
             halt 500, 'Missing file' unless params[:upload][:tempfile]
 
             tmp_path = params[:upload][:tempfile].path
+
             ext =  params[:upload][:type].split('/').last
-            name = File.basename(tmp_path, File.extname(tmp_path)).split('RackMultipart').last + '.' + ext
+            picture_name = File.basename(tmp_path, File.extname(tmp_path)).split('RackMultipart').last + '.' + ext
             organame = Base64.encode64(@auth_user.organization.name)[0..8]
+            picture_path = File.join(organame, picture_name)
 
             dir_path = File.join(@@base_path, organame)
             FileUtils.mkdir_p(dir_path)
+            
+            full_path = File.join(dir_path, picture_name)
+            FileUtils.mv(tmp_path, full_path)
 
-            path = File.join(dir_path, name)
-            FileUtils.mv(tmp_path, path)
-
-            @recipe.pictureList << path
+            @recipe.pictureList << picture_path
             @recipe.save!
 
             @recipe.to_json
@@ -198,8 +202,8 @@ class App < Sinatra::Base
             if not @recipe
                 halt 404
             end
-            path = Base64.decode64(params[:url])
-            FileUtils.rm(path)
+            picture_path = Base64.decode64(params[:url])
+            FileUtils.rm(File.join(@@base_path, picture_path)
             @recipe.pictureList.delete(path)
             @recipe.save!
         rescue => err

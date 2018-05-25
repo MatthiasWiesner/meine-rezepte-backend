@@ -1,6 +1,6 @@
 # set path to app that will be used to configure unicorn,
 # note the trailing slash in this example
-@dir = "/usr/local/meine-rezepte-backend"
+@dir = "/usr/local/meine-rezepte-backend/"
 
 worker_processes 2
 working_directory @dir

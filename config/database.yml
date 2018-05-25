@@ -3,6 +3,7 @@ development:
   encoding: unicode
   database: rezepte
   pool: 2
+  host: localhost
   username: rezepte
   password: rezepte
 
@@ -11,5 +12,6 @@ production:
   encoding: unicode
   database: rezepte
   pool: 5
+  host: localhost
   username: rezepte
   password: rezepte
