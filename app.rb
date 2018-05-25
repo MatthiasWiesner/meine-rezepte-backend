@@ -138,7 +138,7 @@ class App < Sinatra::Base
         @recipe = @auth_user.recipes.find(params[:id])
         begin
             @recipe.pictureList.each do |picture_path|
-                FileUtils.rm(File.join(@@base_path, picture_path)
+                FileUtils.rm(File.join(@@base_path, picture_path))
             end
             @recipe.destroy!
         rescue => err
@@ -203,7 +203,7 @@ class App < Sinatra::Base
                 halt 404
             end
             picture_path = Base64.decode64(params[:url])
-            FileUtils.rm(File.join(@@base_path, picture_path)
+            FileUtils.rm(File.join(@@base_path, picture_path))
             @recipe.pictureList.delete(path)
             @recipe.save!
         rescue => err
