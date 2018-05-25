@@ -1,6 +1,6 @@
 source "https://rubygems.org"
+gem 'unicorn'
 gem "sinatra"
-
 gem "pg"
 gem "rake"
 gem "sinatra-activerecord"
