@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2018_05_17_162058) do
+ActiveRecord::Schema.define(version: 2018_09_12_154538) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -26,6 +26,7 @@ ActiveRecord::Schema.define(version: 2018_05_17_162058) do
     t.string "description", default: ""
     t.string "content", default: ""
     t.string "pictureList", default: [], array: true
+    t.integer "updated_by"
     t.index ["organization_id"], name: "index_recipes_on_organization_id"
     t.index ["title"], name: "index_recipes_on_title", unique: true
   end

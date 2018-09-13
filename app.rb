@@ -24,10 +24,10 @@ end
 
 class Recipe < ActiveRecord::Base
     belongs_to :organization
+    belongs_to :author, class_name: 'User', foreign_key: "updated_by"
     has_many :users, through: :organization
     validates :title, presence: true, uniqueness: true
 end
-
 
 class App < Sinatra::Base
     @@base_path = '/var/www/html/meine-rezepte/public/images'
@@ -92,14 +92,14 @@ class App < Sinatra::Base
         else
             @recipes = @auth_user.recipes.all()
         end
-        @recipes.to_json
+        @recipes.to_json(:include => {:author => {:only => :email}})
     end
 
     get '/recipe/:id' do
         protect!
         content_type :json
         @recipe = @auth_user.recipes.find(params[:id])
-        @recipe.to_json
+        @recipe.to_json(:include => {:author => {:only => :email}})
     end
 
     post "/recipe/?" do
@@ -109,7 +109,8 @@ class App < Sinatra::Base
             @recipe = @auth_user.organization.recipes.create!(
                 title: params[:title],
                 description: params[:description],
-                content: params[:content]
+                content: params[:content],
+                updated_by: @auth_user.id
             )
             @recipe.to_json
         rescue => err
@@ -125,7 +126,8 @@ class App < Sinatra::Base
             @recipe.update!(
                 title: params[:title],
                 description: params[:description],
-                content: params[:content]
+                content: params[:content],
+                updated_by: @auth_user.id
             )
             @recipe.to_json
         rescue => err
