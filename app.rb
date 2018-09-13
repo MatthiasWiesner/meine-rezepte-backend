@@ -26,7 +26,9 @@ class Recipe < ActiveRecord::Base
     belongs_to :organization
     belongs_to :author, class_name: 'User', foreign_key: "updated_by"
     has_many :users, through: :organization
-    validates :title, presence: true, uniqueness: true
+    validates :title, presence: true, uniqueness: { scope: :organization,
+        message: "only once per organization" 
+    }
 end
 
 class App < Sinatra::Base
