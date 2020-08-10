@@ -26,9 +26,23 @@ class Recipe < ActiveRecord::Base
     belongs_to :organization
     belongs_to :author, class_name: 'User', foreign_key: "updated_by"
     has_many :users, through: :organization
+    has_many :tag_recipe_relationships
+    has_many :tags, through: :tag_recipe_relationships
     validates :title, presence: true, uniqueness: { scope: :organization,
         message: "only once per organization" 
     }
+end
+
+class Tag < ActiveRecord::Base
+    has_many :tag_recipe_relationships
+    has_many :recipes, through: :tag_recipe_relationships
+    validates :name, presence: true, uniqueness: true
+end
+
+class TagRecipeRelationship < ActiveRecord::Base
+    self.table_name = 'recipes_tags'
+    belongs_to :tag
+    belongs_to :recipe
 end
 
 class App < Sinatra::Base
