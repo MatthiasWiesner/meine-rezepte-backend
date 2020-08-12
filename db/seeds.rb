@@ -18,9 +18,9 @@ users.each do |u|
 end
 
 tags = [
-  {name: 'kräftig'},
-  {name: 'würzig'},
-  {name: 'leicht'},
+  {name: 'kräftig', organization_id: 2},
+  {name: 'würzig', organization_id: 2},
+  {name: 'leicht', organization_id: 2},
 ]
 
 tags.each do |t|
@@ -31,14 +31,14 @@ recipes = [
   {
     organization_id: 2,
     title: 'Wodka Martini',
-    description: '- 50 ml Grey Goose vodka' \
-                 ' - 10 ml Noilly Prat' \
-                 ' - ice , cubed',
-    content:     '- Fill your Martini glass with ice to chill' \
-                 '- Pour the Grey Goose Vodka and the chilled Noilly Prat vermouth into a cocktail shaker' \
-                 '- Add the ice and stir for 30 seconds' \
-                 '- Empty your glass of ice and pour in the drink through a strainer' \
-                 '- Garnish with a twist of lemo',
+    description: "- 50 ml Grey Goose vodka\n" \
+                 "- 10 ml Noilly Prat\n" \
+                 "- ice , cube\n",
+    content:     "- Fill your Martini glass with ice to chill\n" \
+                 "- Pour the Grey Goose Vodka and the chilled Noilly Prat vermouth into a cocktail shaker\n" \
+                 "- Add the ice and stir for 30 seconds\n" \
+                 "- Empty your glass of ice and pour in the drink through a strainer\n" \
+                 "- Garnish with a twist of lem\n",
     updated_by: 2,
     tag_id: [1,2]
   }

@@ -12,12 +12,14 @@ require 'fileutils'
 class Organization < ActiveRecord::Base
     has_many :users
     has_many :recipes
+    has_many :tags
     validates :name, presence: true, uniqueness: true
 end
 
 class User < ActiveRecord::Base
     belongs_to :organization
     has_many :recipes, through: :organization
+    has_many :tags, through: :organization
     validates :email, presence: true, uniqueness: true
     validates :password, presence: true
 end
@@ -26,24 +28,19 @@ class Recipe < ActiveRecord::Base
     belongs_to :organization
     belongs_to :author, class_name: 'User', foreign_key: "updated_by"
     has_many :users, through: :organization
-    has_many :tag_recipe_relationships
-    has_many :tags, through: :tag_recipe_relationships
+    has_and_belongs_to_many :tags
     validates :title, presence: true, uniqueness: { scope: :organization,
         message: "only once per organization" 
     }
 end
 
 class Tag < ActiveRecord::Base
-    has_many :tag_recipe_relationships
-    has_many :recipes, through: :tag_recipe_relationships
+    belongs_to :organization
+    has_many :users, through: :organization
+    has_and_belongs_to_many :recipes
     validates :name, presence: true, uniqueness: true
 end
 
-class TagRecipeRelationship < ActiveRecord::Base
-    self.table_name = 'recipes_tags'
-    belongs_to :tag
-    belongs_to :recipe
-end
 
 class App < Sinatra::Base
     @@base_path = '/var/www/html/meine-rezepte/public/images'
@@ -108,14 +105,14 @@ class App < Sinatra::Base
         else
             @recipes = @auth_user.recipes.all()
         end
-        @recipes.to_json(:include => {:author => {:only => :email}})
+        @recipes.to_json(:include => [:tags, :author => {:only => :email}])
     end
 
     get '/recipe/:id' do
         protect!
         content_type :json
         @recipe = @auth_user.recipes.find(params[:id])
-        @recipe.to_json(:include => {:author => {:only => :email}})
+        @recipe.to_json(:include => [:tags, :author => {:only => :email}])
     end
 
     post "/recipe/?" do
@@ -128,7 +125,10 @@ class App < Sinatra::Base
                 content: params[:content],
                 updated_by: @auth_user.id
             )
-            @recipe.to_json
+            params[:tagList].each do |tag_id|
+                @recipe.tags.push(Tag.find(tag_id))
+            end
+            @recipe.to_json(:include => [:tags, :author => {:only => :email}])
         rescue => err
             halt 500, err.message
         end
@@ -145,7 +145,13 @@ class App < Sinatra::Base
                 content: params[:content],
                 updated_by: @auth_user.id
             )
-            @recipe.to_json
+
+            @recipe.tags = []
+            params[:tagList].each do |tag_id|
+                @recipe.tags.push(Tag.find(tag_id))
+            end
+
+            @recipe.to_json(:include => [:tags, :author => {:only => :email}])
         rescue => err
             halt 500, err.message
         end
@@ -158,6 +164,7 @@ class App < Sinatra::Base
             @recipe.pictureList.each do |picture_path|
                 FileUtils.rm(File.join(@@base_path, picture_path))
             end
+            TagRecipeRelationship.where(recipe_id: @recipe.id).delete_all
             @recipe.destroy!
         rescue => err
             halt 500, err.message
@@ -226,6 +233,67 @@ class App < Sinatra::Base
             FileUtils.rm(File.join(@@base_path, picture_path))
             @recipe.pictureList.delete(path)
             @recipe.save!
+        rescue => err
+            halt 500, err.message
+        end
+    end
+
+    # Tag relevant methods
+    get '/tag/?' do
+        protect!
+        content_type :json
+        @tags = @auth_user.tags.all()
+        @tags.to_json(:include => :recipes)
+    end
+
+    get '/tag/:id' do
+        protect!
+        content_type :json
+        @tags = @auth_user.tags.find(params[:id])
+        @tags.to_json(:include => {:recipes => {:include => :tags}})
+    end
+
+    get '/tag/recipe/:recipe_id' do
+        protect!
+        content_type :json
+        begin
+            @recipe = @auth_user.organization.recipes.find(params[:recipe_id])
+            @recipe.tags.to_json
+        rescue => err
+            halt 500, err.message
+        end    
+    end
+
+    post '/tag/:tag_id/recipe/:recipe_id' do
+        protect!
+        begin
+            @recipe = @auth_user.organization.recipes.find(params[:recipe_id])
+            @tag = @auth_user.organization.recipes.find(params[:tag_id])
+            @recipe.tags.push(@tag)
+            halt 200
+        rescue => err
+            halt 500, err.message
+        end
+    end
+
+    delete '/tag/recipe/:recipe_id' do
+        protect!
+        begin
+            @recipe = @auth_user.organization.recipes.find(params[:recipe_id])
+            @recipe.tags = []
+            halt 200
+        rescue => err
+            halt 500, err.message
+        end
+    end
+
+    delete '/tag/:tag_id/recipe/:recipe_id' do
+        protect!
+        begin
+            @recipe = @auth_user.organization.recipes.find(params[:recipe_id])
+            @tag = @auth_user.organization.recipes.find(params[:tag_id])
+            @recipe.tags.delete(@tag)
+            halt 200
         rescue => err
             halt 500, err.message
         end
