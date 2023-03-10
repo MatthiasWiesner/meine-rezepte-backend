@@ -41,6 +41,10 @@ class Tag < ActiveRecord::Base
     validates :name, presence: true, uniqueness: true
 end
 
+class RecipesTags < ActiveRecord::Base
+    belongs_to :tags
+    belongs_to :recipes
+end
 
 class App < Sinatra::Base
     @@base_path = '/var/www/html/meine-rezepte/public/images'
