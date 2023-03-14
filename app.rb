@@ -168,7 +168,7 @@ class App < Sinatra::Base
             @recipe.pictureList.each do |picture_path|
                 FileUtils.rm(File.join(@@base_path, picture_path))
             end
-            TagRecipeRelationship.where(recipe_id: @recipe.id).delete_all
+            RecipesTags.where(recipe_id: @recipe.id).delete_all
             @recipe.destroy!
         rescue => err
             halt 500, err.message
@@ -243,6 +243,19 @@ class App < Sinatra::Base
     end
 
     # Tag relevant methods
+    post "/tag/?" do
+        protect!
+        content_type :json
+        begin
+            @tag = @auth_user.organization.tags.create!(
+                name: params[:name]
+            )
+            @tag.to_json
+        rescue => err
+            halt 500, err.message
+        end
+    end
+
     get '/tag/?' do
         protect!
         content_type :json
@@ -297,6 +310,18 @@ class App < Sinatra::Base
             @recipe = @auth_user.organization.recipes.find(params[:recipe_id])
             @tag = @auth_user.organization.recipes.find(params[:tag_id])
             @recipe.tags.delete(@tag)
+            halt 200
+        rescue => err
+            halt 500, err.message
+        end
+    end
+
+    delete '/tag/:tag_id' do
+        protect!
+        begin
+            @tag = @auth_user.organization.tags.find(params[:tag_id])
+            RecipesTags.where(tag_id: params[:tag_id]).delete_all
+            @tag.delete()
             halt 200
         rescue => err
             halt 500, err.message
