@@ -129,9 +129,14 @@ class App < Sinatra::Base
                 content: params[:content],
                 updated_by: @auth_user.id
             )
-            params[:tagList].each do |tag_id|
-                @recipe.tags.push(Tag.find(tag_id))
+
+            @recipe.tags = []
+            if params.has_key?(:tagList)
+                params[:tagList].each do |tag_id|
+                    @recipe.tags.push(Tag.find(tag_id))
+                end
             end
+
             @recipe.to_json(:include => [:tags, :author => {:only => :email}])
         rescue => err
             halt 500, err.message
@@ -151,8 +156,10 @@ class App < Sinatra::Base
             )
 
             @recipe.tags = []
-            params[:tagList].each do |tag_id|
-                @recipe.tags.push(Tag.find(tag_id))
+            if params.has_key?(:tagList)
+                params[:tagList].each do |tag_id|
+                    @recipe.tags.push(Tag.find(tag_id))
+                end
             end
 
             @recipe.to_json(:include => [:tags, :author => {:only => :email}])
